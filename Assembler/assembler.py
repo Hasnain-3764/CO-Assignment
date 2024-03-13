@@ -144,3 +144,15 @@ def J_type_instruction(instruction,s,register_address):
 s=list(input('').split(' '))
 s2=""
 s1=R_type_instruction(s,s2,register,register_address)
+
+input_file=sys.argv[1]
+output_file=sys.argv[2]
+with open(input_file,"r") as f:
+    with open(output_file,"w") as q:
+        for line in f:
+            if line.strip():
+                q.write(line)
+
+
+
+
