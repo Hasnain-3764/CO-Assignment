@@ -9,7 +9,7 @@ def binary_conversion_uptofive(s):
         remainderx+=remainder*(2**(5-count))
         count-=1
     return remainderx
-def I_type_binarycoverter(num):
+def binarycoverter(num):
     num1=int(num)
     count=12
     remainderx=0
@@ -18,6 +18,34 @@ def I_type_binarycoverter(num):
         num1=num1//2
         remainderx+=remainder*(10**(12-count))
         count-=1
+    while len(str(remainderx))<12:
+        remainderx="0"+str(remainderx)
+    return str(remainderx)
+def binarycoverter_long(num):
+    num1=int(num)
+    count=32
+    remainderx=0
+    while(count>0):
+        remainder=num1%2
+        num1=num1//2
+        remainderx+=remainder*(10**(32-count))
+        count-=1
+    while len(str(remainderx))<32:
+        remainderx="0"+str(remainderx)
+    return str(remainderx)
+def binaryconverter_tewbits(num):
+    num1=int(num)
+    count=20
+    remainderx=0
+    while(count>0):
+        remainder=num1%2
+        num1=num1//2
+        remainderx+=remainder*(10**(20-count))
+        count-=1
+    while len(str(remainderx))<20:
+        remainderx="0"+str(remainderx)
+    return str(remainderx)
+
 def R_type_instruction(instruction,s,reg,register_address):
     lst_reg=list(instruction[1].split(","))
     if instruction[0]=="add":
@@ -75,16 +103,44 @@ def R_type_instruction(instruction,s,reg,register_address):
         s+="0110011"
         return s
     return s
-def I_type_instruction(instruction,s,reg,register_address):
+def I_type_instruction(instruction,s,register_address):
     lst_reg=list(instruction[1].split(','))
     if instruction[0]=="addi":
-        s+=str(I_type_binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"000"+register_address[lst_reg[0]]+"0010011"
+        s+=str(binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"000"+register_address[lst_reg[0]]+"0010011"
         return s
     elif instruction[0]=="lw":
-        s+=str(I_type_binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"010"+register_address[lst_reg[0]]+"0000011"
+        lst_reg1=list(lst_reg[1][:(len(lst_reg[1])-2)].split('('))
+        s+=str(binarycoverter(lst_reg1[0]))+register_address(lst_reg1[1])+"010"+register_address(lst_reg[0])+"0000011"
         return s
     elif instruction[0]=="sltiu":
-        s+=str(I_type_binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"011"+register_address[lst_reg[0]]+"0010011"
+        s+=str(binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"011"+register_address[lst_reg[0]]+"0010011"
         return s
     elif instruction[0]=="jalr":
-        s+=str(I_type_binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"000"+register_address[lst_reg[0]]+"1100111"
+        s+=str(binarycoverter(lst_reg[2]))+register_address[lst_reg[1]]+"000"+register_address[lst_reg[0]]+"1100111"
+        return s
+def S_type_instruction(instruction,s,register_address):
+    lst_reg=list(instruction[1].split(','))
+    if instruction[0]=="sw":
+        lst_reg1=list(lst_reg[1][:(len(lst_reg[1])-2)].split('('))
+        s+=str(lst_reg1[0])[:(len(binarycoverter(lst_reg1[0]))-5)]+register_address[lst_reg[0]]+register_address[lst_reg1[1]]+"010"+str(lst_reg1[0])[(len(binarycoverter(lst_reg1[0]))-5):]+"0100011"
+        return s
+    return s
+def B_type_instruction(instruction,s,register_address):
+    lst_reg=list(instruction[1].split(','))
+    b_type_opcode={"beq":"000","bne":"001","blt":"100","bge":"101","bltu":"110","bgeu":"111"}
+    s+=str(binarycoverter(lst_reg[2])[:7])+register_address[lst_reg[1]]+register_address[lst_reg[0]]+b_type_opcode[instruction[0]]+str(binarycoverter(lst_reg)[7:])+"1100011"
+    return s
+def U_type_instruction(instruction,s,register_address):
+    lst_reg=list(instruction[1].split(','))
+    U_type_opcode={"auipc":"0010111","lui":"0110111"}
+    s+=binarycoverter_long(str(lst_reg[1]))[:21]+register_address[lst_reg[0]]+U_type_opcode[instruction[0]]
+    return s
+def J_type_instruction(instruction,s,register_address):
+    lst_reg=list(instruction[1].split(','))
+    j_type_opcode={"jal":"1101111"}
+    num=binaryconverter_tewbits(str(lst_reg[1]))
+    s+=num[0]+num[10:]+num[11]+num[1:9]
+    s+=register_address[lst_reg[0]]+j_type_opcode[instruction[0]]
+s=list(input('').split(' '))
+s2=""
+s1=R_type_instruction(s,s2,register,register_address)
