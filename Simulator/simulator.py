@@ -1,4 +1,5 @@
 import sys
+import os
 register_address={
     "zero":"00000","ra":"00001","sp":"00010","gp":"00011","tp":"00100","t0":"00101",
     "t1":"00110","t2":"00111","s0":"01000","s1":"01001","a0":"01010","a1":"01011",
@@ -61,6 +62,7 @@ dic_type_of_ins = {
 program_counter=0
 count=0
 immediate={ }
+memory=[]
 labels={"start":"0","end":"1"}
 R_TYPE = {
   "000": ["add","sub"],
@@ -139,27 +141,40 @@ data_memory = {"0x00010000":0,
                "0x00010078":0,
                "0x0001007c":0,
 }
-input_file=sys.stdin.read().split("\n")
-list_con=[i for i in input_file if i!=""]
-memory=[]
-for j in range(len(list_con)):
-    memory[j]=list_con[j]
-inst=False
+
 
 def branching(count,memory,program_counter):
     global register_values
     global data_memory
     global dic_type_for_opcode
     global registers
-    q=count-1
+    q=int(count)
     if count==len(memory):
-        print_data(data_memory)
+        output_file.write(print_data(data_memory))
         return 
     while(q<len(memory)):
         inst=memory[q]
         register_values,data_memory=func_Calling(inst,register_values,registers,dic_type_for_opcode,data_memory)
-        print_register(register_values,program_counter)
+        output_file.write(print_register(register_values,program_counter))
+        q+=1
     return 
+def convert_to_binary(number):
+    binary_str = bin(number)[2:]
+    binary_32_bit = binary_str.zfill(32)
+    return binary_32_bit
+
+def print_register(values1,program_counter):
+    reg123=""
+    reg123+="0b"+convert_to_binary(program_counter)
+    for val in values1.values():
+        reg123+=" "+"0b"+convert_to_binary(val)
+    return reg123
+
+def print_data(data_memory):
+    reg234=""
+    for i,j in zip(data_memory.keys(),data_memory.values()):
+        reg234=i+":"+bin(j)+"\n"
+    return reg234
 
 def todecimal(x, bits):
     assert len(x) <= bits
@@ -172,14 +187,14 @@ def perform_addition(bin_code, values, registers):
     source_reg1 = bin_code[7:12]
     source_reg2 = bin_code[12:17]
     values[registers[dest_reg]] = values[registers[source_reg1]] + values[registers[source_reg2]]
-    return values
+    
 
 def perform_subtraction(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg1 = bin_code[7:12]
     source_reg2 = bin_code[12:17]
     values[registers[dest_reg]] = values[registers[source_reg1]] - values[registers[source_reg2]]
-    return values
+    
 
 def perform_signed_comparison(bin_code, values, registers):
     dest_reg = bin_code[20:25]
@@ -201,47 +216,51 @@ def perform_unsigned_comparison(bin_code, values, registers):
         values[registers[dest_reg]] = 1
     else:
         values[registers[dest_reg]] = 0
-    return values
+    
 
 def perform_exclusive_or(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg1 = bin_code[7:12]
     source_reg2 = bin_code[12:17]
     values[registers[dest_reg]] = values[registers[source_reg1]] ^ values[registers[source_reg2]]
-    return values
+    
 
 def perform_left_shift(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg = bin_code[7:12]
-    shift_amount = int(bin(values[registers[source_reg]])[length-5:], 2)
     length = len(bin(values[registers[source_reg]]))
+    binary=str(bin(values[registers[source_reg]]))
+    binarys=binary[2:]
+    shift_amount = int(str(binarys)[length-5:], 2)
     values[registers[dest_reg]] = shift_amount >> values[registers[bin_code[12:17]]]
     return values
 
 def perform_right_shift(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg = bin_code[7:12]
-    shift_amount = int(bin(values[registers[source_reg]])[length-5:], 2)
     length = len(bin(values[registers[source_reg]]))
+    binary=str(bin(values[registers[source_reg]]))
+    binarys=binary[2:]
+    shift_amount = int(str(binarys)[length-5:], 2)
     values[registers[dest_reg]] = shift_amount << values[registers[bin_code[12:17]]]
-    return values
+    
 
 def perform_or_operation(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg1 = bin_code[7:12]
     source_reg2 = bin_code[12:17]
     values[registers[dest_reg]] = values[registers[source_reg1]] | values[registers[source_reg2]]
-    return values
+    
 
 def perform_and_operation(bin_code, values, registers):
     dest_reg = bin_code[20:25]
     source_reg1 = bin_code[7:12]
     source_reg2 = bin_code[12:17]
     values[registers[dest_reg]] = values[registers[source_reg1]] & values[registers[source_reg2]]
-    return values
+    
 
 
-def execute_r_type_instruction(bin_code, values, registers, r_type_reg):
+def execute_r_type_instruction(bin_code, values, registers, r_type_reg,data_memory):
     global count
     global program_counter
     func3 = bin_code[17:20]
@@ -269,7 +288,7 @@ def execute_r_type_instruction(bin_code, values, registers, r_type_reg):
         values = perform_and_operation(bin_code, values, registers)
     count+=1
     program_counter+=4
-    return values,program_counter
+    return values,data_memory
 
 def execute_s_type_instruction(bin_code, values, register, data_memory):
     global program_counter
@@ -281,14 +300,14 @@ def execute_s_type_instruction(bin_code, values, register, data_memory):
     data_memory[address] = values[register[reg_dest]]
     count+=1
     program_counter += 4
-    return values,program_counter
+    return values,data_memory
 
 def perform_addition_imm(bin_code, values, register):
     source_reg = register[bin_code[20:25]]
     dest_reg = register[bin_code[12:17]]
     imme = bin_code[:12]
     values[dest_reg] = values[source_reg] + todecimal(imme, 12)
-    return values
+    
 
 def perform_lessthanimme(bin_code, values, register):
     source_reg = register[bin_code[20:25]]
@@ -297,15 +316,15 @@ def perform_lessthanimme(bin_code, values, register):
     imme = bin_code[:12]
     if reg1 < int(imme, 2):
         values[dest_reg] = 1
-    return values
+    
 
 def perform_workingReg(bin_code, values, register, data_memory):
     source_reg = register[bin_code[20:25]]
     dest_reg = register[bin_code[12:17]]
     imme = bin_code[:12]
     address = "0x000" + str(hex(todecimal(imme, 12) + values[source_reg]))[2:]
-    values[dest_reg] = data_memory[address]
-    return values
+    data_memory[address]=values[dest_reg] 
+    return values,data_memory
 
 def jump_linkregister(bin_code, values, register):
     global count
@@ -317,28 +336,29 @@ def jump_linkregister(bin_code, values, register):
     program_counter = bin(values[source_reg] + todecimal(imme, 12))
     program_counter[len(program_counter)-1]=0
     program_counter=todecimal(program_counter)
-    count=(program_counter//4)
-    return values
+    count=(program_counter/4) 
+    branching(count,memory,program_counter)
+    
 
-def execute_i_type_instruction(bin_code, values, register, i_type_reg):
+def execute_i_type_instruction(bin_code, values, register, i_type_reg,data_memory):
     global inst
     global count
     global program_counter
     opcode = bin_code[25:]
     func = i_type_reg[opcode]
     func3 = opcode[17:20]
-    if func in {"000": "addi", "011": "sltiu"}:
+    if func in ["000","011"]:
         if func3 == "000":
             values = perform_addition_imm(bin_code, values, register)
         else:
             values = perform_lessthanimme(bin_code, values, register)
     elif func == "lw":
-        values = perform_workingReg(bin_code, values, register)
+        values,data_memory = perform_workingReg(bin_code, values, register,data_memory)
     elif func == "jalr":
         values= jump_linkregister(bin_code, values, register)
     program_counter+=4
     count+=1
-    return values,program_counter
+    return values,data_memory
 
 
 def branch_if_equal(bin_code, values, register):
@@ -350,7 +370,8 @@ def branch_if_equal(bin_code, values, register):
     if values[source_reg1] == values[source_reg2]:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
 def branch_if_not_equal(bin_code, values, register):
     global program_counter
@@ -361,7 +382,8 @@ def branch_if_not_equal(bin_code, values, register):
     if values[source_reg1] != values[source_reg2]:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
 def branch_if_greater_equal(bin_code, values, register):
     global program_counter
@@ -372,7 +394,8 @@ def branch_if_greater_equal(bin_code, values, register):
     if values[source_reg1] >= values[source_reg2]:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
 def branch_if_greater_unsigned_equal(bin_code, values, register):
     global program_counter
@@ -385,7 +408,8 @@ def branch_if_greater_unsigned_equal(bin_code, values, register):
     if reg1 >= reg2:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
 def branch_if_less(bin_code, values, register):
     global program_counter
@@ -396,7 +420,8 @@ def branch_if_less(bin_code, values, register):
     if values[source_reg1] < values[source_reg2]:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
 def branch_if_less_unsigned(bin_code, values, register):
     global program_counter
@@ -409,9 +434,10 @@ def branch_if_less_unsigned(bin_code, values, register):
     if reg1 < reg2:
         program_counter += todecimal(imme, 13)
         count = (program_counter/4)
-    return values
+        branching(count,memory,program_counter)
+    
 
-def execute_b_type_instruction(bin_code, values, register, b_type_reg):
+def execute_b_type_instruction(bin_code, values, register, b_type_reg, data_memory):
     global program_counter
     global count 
     func3 = bin_code[17:20]
@@ -432,22 +458,23 @@ def execute_b_type_instruction(bin_code, values, register, b_type_reg):
         pass
     program_counter+=4
     count+=1
-    return values
+    return values,data_memory
 
 def add_upperimm(bin_code, values, register, program_counter):
     dest_reg = register[bin_code[20:25]]
     imme = bin_code[:20] + "000000000000"
     values[dest_reg] = program_counter + todecimal(imme, 32)
-    return values
+    
 
 def load_upperimm(bin_code, values, register):
     dest_reg = register[bin_code[20:25]]
     imme = bin_code[:20] + "000000000000"
     values[dest_reg] = todecimal(imme, 32)
-    return values
+    
 
-def execute_u_type_instruction(bin_code, values, register, u_type_reg, program_counter):
+def execute_u_type_instruction(bin_code, values, register, u_type_reg,data_memory):
     global count
+    global program_counter
     opcode = bin_code[25:]
     func = u_type_reg[opcode]
     if func == "auipc":
@@ -456,9 +483,9 @@ def execute_u_type_instruction(bin_code, values, register, u_type_reg, program_c
         values = load_upperimm(bin_code, values, register)
     program_counter+=4
     count+=1
-    return values,program_counter
+    return values,data_memory
 
-def execute_j_type_instruction(bin_code, values, register, j_type_reg):
+def execute_j_type_instruction(bin_code, values, register, j_type_reg,data_memory):
     global program_counter
     global count
     opcode = bin_code[25:]
@@ -469,53 +496,49 @@ def execute_j_type_instruction(bin_code, values, register, j_type_reg):
         values[reg]=program_counter+4
         program_counter+=todecimal(imme,21)
         count=program_counter/4
+        branching(count,memory,program_counter)
     program_counter+=4
     count+=1
-    return values
+    return values,data_memory
 
 def func_Calling(arg,values,register,dic_typeofopcode,data_memory):
     global program_counter
     opcode= arg[25:]
     if opcode == "0110011":
-        return execute_r_type_instruction(arg,values,register,dic_typeofopcode["R"])
+        return execute_r_type_instruction(arg,values,register,dic_typeofopcode["R"],data_memory)
     elif opcode == "0000011" or opcode == "0010011" or opcode == "1100111" :
-        return execute_i_type_instruction(arg,values,register,dic_typeofopcode["I"])
+        return execute_i_type_instruction(arg,values,register,dic_typeofopcode["I"],data_memory)
     elif opcode == "0100011" :
         return execute_s_type_instruction(arg,values,register,data_memory)
     elif opcode == "1101111":
-        return execute_j_type_instruction(arg,values,register,dic_typeofopcode["J"])
+        return execute_j_type_instruction(arg,values,register,dic_typeofopcode["J"],data_memory)
     elif opcode == "1100011":
-        return execute_b_type_instruction(arg,values,register,dic_typeofopcode["B"])
+        return execute_b_type_instruction(arg,values,register,dic_typeofopcode["B"],data_memory)
     elif opcode == "0110111" or opcode == "0010111":
-        return execute_u_type_instruction(arg,values,register,dic_typeofopcode["U"],program_counter)
-    print_register(values,program_counter)
+        return execute_u_type_instruction(arg,values,register,dic_typeofopcode["U"],data_memory)
     return values,data_memory
 
-def print_register(values1,program_counter):
-    sys.stdout.write(bin(program_counter))
-    for val in values1.values():
-        sys.stdout.write(" "+bin(val))
 
-def print_data(data_memory):
-    for i,j in zip(data_memory.keys(),data_memory.values()):
-        sys.stdout.write(i+":"+bin(j)+"\n",sep="")
+input="s_test4.txt"
+output="output.txt"
 
-def branching(count,memory,program_counter):
-    global register_values
-    global data_memory
-    global dic_type_for_opcode
-    global registers
-    q=count-1
-    if count==len(memory):
-        print_data(data_memory)
-        return 
-    while(q<len(memory)):
-        inst=memory[q]
-        register_values,data_memory=func_Calling(inst,register_values,registers,dic_type_for_opcode,data_memory)
-        print_register(register_values,program_counter)
-    return 
+if not os.path.exists(input):
+    sys.exit()
 
+with open(input,"r") as input_file:
+    file= input_file.readlines()
+    for line in file:
+        memory.append(line.strip("\n"))
 
-for bin_co in memory:
-    register_values,data_memory=func_Calling(bin_co,register_values,dic_type_for_opcode,data_memory)
-    sys.stdout.write(data_memory)
+with open(output,"w") as output_file:
+    for bin_co in memory:
+        if bin_co==memory[len(memory)-1]:
+            for i in data_memory:
+                line=""
+                line+=str(i)+":"+str(data_memory[i])
+            output_file.write(line)
+        else:
+            register_values,data_memory=func_Calling(bin_co,register_values,registers,dic_type_for_opcode,data_memory)
+            file123=print_register(register_values,program_counter)
+            output_file.write(file123+"\n")
+sys.exit()
